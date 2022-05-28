@@ -4,9 +4,6 @@
 #include <unistd.h>
 #include <math.h>
 
-
-// ToDo
-// - Check big-little endian
 // ----------------------------------------------------------------------
 
 char help[]="Usage:\nRedirect the output to the file \nexample::\n$ autoadjust image.bmp > image2.bmp\nOr mention flag “-o” to output the result into an output file \nexample::\n$ autoadjust image.bmp -o image2.bmp\n";
@@ -41,7 +38,7 @@ typedef struct dib{
     int cplane;  // color plane - 1
     /// 2 bytes
     int bypp;     // bytes per pixel
-    int bipp;     // bites per pixel
+    int bipp;     // bits per pixel
     // not important
     unsigned char* arr;
 
@@ -79,12 +76,8 @@ BMP fGetBmp(FILE *pFile){
     fseek(pFile,0,SEEK_SET);
     fread(b.format,sizeof(char),2,pFile);
     fread(&(b.fileSize),sizeof(char),4,pFile);
-    // b.fileSize=px.n;
     fread(b.reserve,sizeof(char),4,pFile);
-    // fseek(pFile,10,SEEK_SET);
     fread(&(b.endHeader),sizeof(char),4,pFile);
-    // b.endHeader=px.n;
-
     return b;
 } 
 
@@ -104,8 +97,8 @@ DIB fGetDib(FILE *pFile){
     fread(px.s,sizeof(char),2,pFile);
     d.cplane=px.n;
     fread(px.s,sizeof(char),2,pFile);
-    d.bypp=px.n;
-    d.bipp=d.bypp/8;
+    d.bipp=px.n;
+    d.bypp=d.bipp/8;
     // Writing end of dib into array (not important info)
     int nEmptyBytes=d.sizeDib-16;
     d.arr=(unsigned char*)malloc(sizeof(char)*nEmptyBytes);
@@ -190,9 +183,6 @@ PIX ifMinPix(PIX p1,PIX min){
     if(p1.blue<min.blue){
         min.blue=p1.blue;
     }
-    if(p1.alpha<min.alpha){
-        min.alpha=p1.alpha;
-    }
     return min;
 }
 
@@ -206,9 +196,6 @@ PIX ifMaxPix(PIX p1,PIX max){
     }
     if(p1.blue>max.blue){
         max.blue=p1.blue;
-    }
-    if(p1.alpha>max.alpha){
-        max.alpha=p1.alpha;
     }
     return max;
 }
@@ -228,7 +215,7 @@ Pixels fGetPixels(FILE* pFile,Header header){
     Pixels pxs=fInitPixels(header);
     PIX pTemp;
     int nPixels=pxs.nPixels;
-    int bpp=header.dHeader.bipp; // bites per pixel;
+    int bpp=header.dHeader.bypp; // bites per pixel;
     // To the end of the header and start of the colors;
     fseek(pFile,header.bHeader.endHeader,SEEK_SET);
     for(int i=0;i<nPixels;i++){
@@ -256,7 +243,6 @@ float* fGetCoefs(PIX max, PIX min){
     if(max.red-min.red!=0){  pCoefs[0]=(255.0/(max.red-min.red)); }
     if(max.green-min.green!=0){ pCoefs[1]=255.0/(max.green-min.green); }
     if(max.blue-min.blue!=0){ pCoefs[2]=255.0/(max.blue-min.blue); }
-    if(max.alpha-min.alpha!=0){ pCoefs[3]=255.0/(max.alpha-min.alpha); }
     return pCoefs;
 } 
 
@@ -266,7 +252,7 @@ PIX fEditPixel(PIX px, PIX min, float coefs[]){
     npx.red=(int)round((px.red-min.red)*coefs[0]);
     npx.green=(int)round((px.green-min.green)*coefs[1]);
     npx.blue=(int)round((px.blue-min.blue)*coefs[2]);
-    npx.alpha=(int)round((px.alpha-min.alpha)*coefs[3]);
+    npx.alpha=px.alpha;
     return npx;
 }
 
@@ -279,21 +265,10 @@ Pixels fAutoAdjust(Pixels pxs){
 
     PIX min=pxs.pixMin;
     PIX max=pxs.pixMax;
-    PIX pTemp;   
     float *coefs=fGetCoefs(max,min);
 
     for(int i=0;i<pxs.nPixels;i++){
-        pTemp=fEditPixel(pxs.pixArr[i],min,coefs);
-        // To visualize the new min and max values for comparing with the odler one
-        if(i==0){
-            // Initialize min and max
-            new.pixMin=pTemp;
-            new.pixMax=pTemp;
-        }else{
-            new.pixMin=ifMinPix(pTemp,new.pixMin);
-            new.pixMax=ifMaxPix(pTemp,new.pixMax);
-        }
-        new.pixArr[i]=pTemp;
+        new.pixArr[i]=fEditPixel(pxs.pixArr[i],min,coefs);
     }
     return new;
 }
@@ -325,7 +300,7 @@ void fWritePix(FILE *pfile,PIX px,int flag){
 int fWritePixels(FILE *pfile,Pixels pxs, Header header){
     
     fWriteHeader(pfile,header);
-    int flag=header.dHeader.bipp-3;
+    int flag=header.dHeader.bypp-3;
     for(int i=0;i<pxs.nPixels;i++){
         fWritePix(pfile,pxs.pixArr[i],flag);
     }
