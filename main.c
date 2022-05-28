@@ -72,7 +72,7 @@ typedef struct pixels{
 }Pixels;
 
 // Reading BMP header
-BMP getBmp(FILE *pFile){
+BMP fGetBmp(FILE *pFile){
     BMP b;
     UNIP px; 
     
@@ -89,7 +89,7 @@ BMP getBmp(FILE *pFile){
 } 
 
 // Reading DIB header
-DIB getDib(FILE *pFile){
+DIB fGetDib(FILE *pFile){
     DIB d;
     UNIP px;
 
@@ -115,10 +115,10 @@ DIB getDib(FILE *pFile){
 }
 
 // Getting the whole header of file
-Header getHeader(FILE *pFile){
+Header fGetHeader(FILE *pFile){
     Header fHeader;
-    fHeader.dHeader=getDib(pFile);
-    fHeader.bHeader=getBmp(pFile);
+    fHeader.dHeader=fGetDib(pFile);
+    fHeader.bHeader=fGetBmp(pFile);
     int end=fHeader.bHeader.endHeader;
     fHeader.heads=(unsigned char*)malloc(sizeof(unsigned char)*end);
 
@@ -129,14 +129,14 @@ Header getHeader(FILE *pFile){
 }
 
 // Print functions
-void printBmp(BMP header){
+void fPrintBmp(BMP header){
     puts("--------------- BMP INFO ---------------\n");
     printf("Size of file:: %d\n",header.fileSize);
     printf("Size of headers:: %d\n",header.endHeader);
     puts("----------------------------------------\n");
 }
 
-void printDib(DIB header){
+void fPrintDib(DIB header){
     puts("--------------- DIB INFO ---------------\n");
     printf("Size of DIB:: %d\n",header.sizeDib);
     printf("Width of file:: %d\n",header.width);
@@ -147,25 +147,25 @@ void printDib(DIB header){
     puts("----------------------------------------\n");
 }
 
-void printHeader(Header header){
-    printBmp(header.bHeader);
-    printDib(header.dHeader);
+void fPrintHeader(Header header){
+    fPrintBmp(header.bHeader);
+    fPrintDib(header.dHeader);
 }
 
-void printPixel(PIX p){
+void fPrintPixel(PIX p){
     printf("( %d %d %d %d )",p.red,p.green,p.blue,p.alpha);
 }
 
-void printPixelsInfo(Pixels pxs){
+void fPrintPixelsInfo(Pixels pxs){
     puts("----------------------------------------------------");
     printf("Total number of pixels:: %d\n",pxs.nPixels);
-    printf("Minimum Pixel:: ");printPixel(pxs.pixMin);
-    printf("\nMaximum Pixel:: ");printPixel(pxs.pixMax);
+    printf("Minimum Pixel:: ");fPrintPixel(pxs.pixMin);
+    printf("\nMaximum Pixel:: ");fPrintPixel(pxs.pixMax);
     puts("\n----------------------------------------------------");
 }
 
 // Reading one pixel from file
-PIX getPix(FILE* pFile,int bpp){
+PIX fGetPix(FILE* pFile,int bpp){
     PIX pTemp;
     if(bpp==4){ // Condition if there alpha value or not
         fread(&(pTemp.alpha),sizeof(char),1,pFile);
@@ -224,7 +224,7 @@ Pixels fInitPixels(Header header){
 }
 
 // Reading all pixels from file, detecting min and max values
-Pixels getPixels(FILE* pFile,Header header){
+Pixels fGetPixels(FILE* pFile,Header header){
     Pixels pxs=fInitPixels(header);
     PIX pTemp;
     int nPixels=pxs.nPixels;
@@ -232,7 +232,7 @@ Pixels getPixels(FILE* pFile,Header header){
     // To the end of the header and start of the colors;
     fseek(pFile,header.bHeader.endHeader,SEEK_SET);
     for(int i=0;i<nPixels;i++){
-        pTemp=getPix(pFile,bpp);
+        pTemp=fGetPix(pFile,bpp);
         if(i==0){
             // Initialize min and max
             pxs.pixMin=pTemp;
@@ -250,7 +250,7 @@ Pixels getPixels(FILE* pFile,Header header){
 }
 
 // Finding maximizing coefficients for RGBA
-float* getCoefs(PIX max, PIX min){
+float* fGetCoefs(PIX max, PIX min){
     float* pCoefs=(float*)malloc(sizeof(float)*4);
 
     if(max.red-min.red!=0){  pCoefs[0]=(255.0/(max.red-min.red)); }
@@ -280,7 +280,7 @@ Pixels fAutoAdjust(Pixels pxs){
     PIX min=pxs.pixMin;
     PIX max=pxs.pixMax;
     PIX pTemp;   
-    float *coefs=getCoefs(max,min);
+    float *coefs=fGetCoefs(max,min);
 
     for(int i=0;i<pxs.nPixels;i++){
         pTemp=fEditPixel(pxs.pixArr[i],min,coefs);
@@ -334,20 +334,20 @@ int fWritePixels(FILE *pfile,Pixels pxs, Header header){
 }
 
 // Check if the file is in .bmp format or asked for help message
-int checkFileInput(char* file){
+int fCheckFileInput(char* file){
     char *dot=strrchr(file, '.');
     if(dot!=NULL && strcmp(dot,".bmp")==0){return 1;}
     else{return -1;}
 }
 
 // Filtering and checking the inputs
-int getFiles(char **filename1, char **filename2,int argc, char **argv){
+int fGetFiles(char **filename1, char **filename2,int argc, char **argv){
     if(argc==2){
         if(strcmp(argv[1],"--help")==0){
             printf("%s",help);
             return -1;
         }
-        if(checkFileInput(argv[1])!=-1){
+        if(fCheckFileInput(argv[1])!=-1){
             *filename1=(char*)malloc(sizeof(char)*strlen(argv[1]));
             strcpy(*filename1,argv[1]); 
         }
@@ -357,7 +357,7 @@ int getFiles(char **filename1, char **filename2,int argc, char **argv){
         while ((opt = getopt(argc, argv, "o:")) != -1) {
             switch (opt) {
                 case 'o':
-                    if(checkFileInput(optarg)!=-1 && checkFileInput(argv[1])!=-1){
+                    if(fCheckFileInput(optarg)!=-1 && fCheckFileInput(argv[1])!=-1){
                         *filename1=(char*)malloc(sizeof(char)*strlen(argv[1]));
                         strcpy(*filename1,argv[1]); 
                         *filename2=(char*)malloc(sizeof(char)*strlen(optarg));
@@ -388,21 +388,21 @@ int main(int argc, char** argv){
     char *filename2=NULL;
     FILE *pfile1;
     FILE *pfile2=NULL;
-    int state=getFiles(&filename1,&filename2,argc,argv);
-    if(state==-1){
+    int flag=fGetFiles(&filename1,&filename2,argc,argv);
+    if(flag==-1){
         return 0;
     }
-    if((pfile1=fopen(filename1,"r"))==NULL){puts("File doesn't exist!"); return 0;}
+    if((pfile1=fopen(filename1,"r"))==NULL){perror("File doesn't exist!"); return 0;}
 
-    Header hh=getHeader(pfile1);
-    Pixels pxs=getPixels(pfile1,hh);
+    Header hheader=fGetHeader(pfile1);
+    Pixels pxs=fGetPixels(pfile1,hheader);
     Pixels new=fAutoAdjust(pxs);
 
-    if(state==1){
-        if((pfile2=fopen(filename2,"w"))==NULL){puts("File doesn't exist!"); return 0;};
+    if(flag==1){
+        if((pfile2=fopen(filename2,"w"))==NULL){perror("File doesn't exist!"); return 0;};
     }
     
-    fWritePixels(pfile2,new,hh);
+    fWritePixels(pfile2,new,hheader);
 
     fclose(pfile1);
 
