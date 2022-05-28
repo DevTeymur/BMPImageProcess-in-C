@@ -64,8 +64,8 @@ typedef struct pixel{   // Struct of pixel values of RGB
 typedef struct pixels{
     int nPixels; // all number of pixels
     PIX *pixArr; // array of pixels
-    PIX pixMin;  // min RGB values of file (red, green, blue can be from different pixels);
-    PIX pixMax;  // max RGB values of file (red, green, blue can be from different pixels);
+    int pixMin;  // min RGB values of file (red, green, blue can be from different pixels);
+    int pixMax;  // max RGB values of file (red, green, blue can be from different pixels);
 }Pixels;
 
 // Reading BMP header
@@ -152,8 +152,8 @@ void fPrintPixel(PIX p){
 void fPrintPixelsInfo(Pixels pxs){
     puts("----------------------------------------------------");
     printf("Total number of pixels:: %d\n",pxs.nPixels);
-    printf("Minimum Pixel:: ");fPrintPixel(pxs.pixMin);
-    printf("\nMaximum Pixel:: ");fPrintPixel(pxs.pixMax);
+    printf("Minimum Pixel:: %d\n",pxs.pixMin);
+    printf("\nMaximum Pixel:: %d\n",pxs.pixMax);
     puts("\n----------------------------------------------------");
 }
 
@@ -173,29 +173,29 @@ PIX fGetPix(FILE* pFile,int bpp){
 }
 
 // Checking if the values current pixel are less than minimum or not
-PIX ifMinPix(PIX p1,PIX min){
-    if(p1.red<min.red){
-        min.red=p1.red;
+int ifMinPix(PIX p1,int min){
+    if(p1.red<min){
+        min=p1.red;
     }
-    if(p1.green<min.green){
-        min.green=p1.green;
+    if(p1.green<min){
+        min=p1.green;
     }
-    if(p1.blue<min.blue){
-        min.blue=p1.blue;
+    if(p1.blue<min){
+        min=p1.blue;
     }
     return min;
 }
 
 // Checking if the values current pixel are more than maiximum or not
-PIX ifMaxPix(PIX p1,PIX max){
-    if(p1.red>max.red){
-        max.red=p1.red;
+int ifMaxPix(PIX p1,int max){
+    if(p1.red>max){
+        max=p1.red;
     }
-    if(p1.green>max.green){
-        max.green=p1.green;
+    if(p1.green>max){
+        max=p1.green;
     }
-    if(p1.blue>max.blue){
-        max.blue=p1.blue;
+    if(p1.blue>max){
+        max=p1.blue;
     }
     return max;
 }
@@ -222,36 +222,33 @@ Pixels fGetPixels(FILE* pFile,Header header){
         pTemp=fGetPix(pFile,bpp);
         if(i==0){
             // Initialize min and max
-            pxs.pixMin=pTemp;
-            pxs.pixMax=pTemp;
+            pxs.pixMin=pTemp.red;
+            pxs.pixMax=pTemp.red;
         }else{
             pxs.pixMin=ifMinPix(pTemp,pxs.pixMin);
             pxs.pixMax=ifMaxPix(pTemp,pxs.pixMax);
         }
         pxs.pixArr[i]=pTemp;
-
     }
-
     return pxs;
-
 }
 
 // Finding maximizing coefficients for RGBA
-float* fGetCoefs(PIX max, PIX min){
+float* fGetCoefs(int max, int min){
     float* pCoefs=(float*)malloc(sizeof(float)*4);
 
-    if(max.red-min.red!=0){  pCoefs[0]=(255.0/(max.red-min.red)); }
-    if(max.green-min.green!=0){ pCoefs[1]=255.0/(max.green-min.green); }
-    if(max.blue-min.blue!=0){ pCoefs[2]=255.0/(max.blue-min.blue); }
+    if(max-min!=0){  pCoefs[0]=(255.0/(max-min)); }
+    if(max-min!=0){ pCoefs[1]=255.0/(max-min); }
+    if(max-min!=0){ pCoefs[2]=255.0/(max-min); }
     return pCoefs;
 } 
 
 // Modifying pixel respectively to minimum and maximum pixel values
-PIX fEditPixel(PIX px, PIX min, float coefs[]){
+PIX fEditPixel(PIX px, int min, float coefs[]){
     PIX npx;
-    npx.red=(int)round((px.red-min.red)*coefs[0]);
-    npx.green=(int)round((px.green-min.green)*coefs[1]);
-    npx.blue=(int)round((px.blue-min.blue)*coefs[2]);
+    npx.red=(int)round((px.red-min)*coefs[0]);
+    npx.green=(int)round((px.green-min)*coefs[1]);
+    npx.blue=(int)round((px.blue-min)*coefs[2]);
     npx.alpha=px.alpha;
     return npx;
 }
@@ -263,8 +260,8 @@ Pixels fAutoAdjust(Pixels pxs){
     new.nPixels=pxs.nPixels;
     new.pixArr=(PIX*)malloc(sizeof(PIX)*new.nPixels);
 
-    PIX min=pxs.pixMin;
-    PIX max=pxs.pixMax;
+    int min=pxs.pixMin;
+    int max=pxs.pixMax;
     float *coefs=fGetCoefs(max,min);
 
     for(int i=0;i<pxs.nPixels;i++){
