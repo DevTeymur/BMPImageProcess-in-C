@@ -1,18 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <math.h>
+
 
 // ToDo
 // - Check big-little endian
-// - redirect || check flag
-// - Delete Not needed variables
-// + Replace rgba to abgr (bmp file struct) 
-// - Check results of example1
-// - check city image
-// - fAutoAdjust - delete intializing max and min
-// - printPixels into WritePixels with stdout in condition NULL for pfile
-// -----------------------------------------------------------------------
+// ----------------------------------------------------------------------
+
+char help[]="Usage:\nRedirect the output to the file \nexample::\n$ autoadjust image.bmp > image2.bmp\nOr mention flag “-o” to output the result into an output file \nexample::\n$ autoadjust image.bmp -o image2.bmp\n";
 
 // Union for converting char-integer or viceversa
 typedef union unionPix{
@@ -287,6 +284,7 @@ Pixels fAutoAdjust(Pixels pxs){
 
     for(int i=0;i<pxs.nPixels;i++){
         pTemp=fEditPixel(pxs.pixArr[i],min,coefs);
+        // To visualize the new min and max values for comparing with the odler one
         if(i==0){
             // Initialize min and max
             new.pixMin=pTemp;
@@ -304,19 +302,6 @@ Pixels fAutoAdjust(Pixels pxs){
 void fWriteHeader(FILE* pfile,Header header){
     BMP b=header.bHeader;
     DIB d=header.dHeader;
-
-    // fwrite(b.format,sizeof(char),2,pfile);
-    // printf("filesize here:: %d\n",b.fileSize);
-    // fwrite(&(b.size),sizeof(char),4,pfile);
-    // fwrite(&(b.reserve),sizeof(char),4,pfile);
-    // fwrite(&(b.endHeader),sizeof(char),4,pfile);
-    // int nEmptyBytes=d.sizeDib-16;
-    // fwrite(&(d.sizeDib),sizeof(char),4,pfile);
-    // fwrite(&(d.width),sizeof(char),4,pfile);
-    // fwrite(&(d.height),sizeof(char),4,pfile);
-    // fwrite(&(d.cplane),sizeof(char),2,pfile);
-    // fwrite(&(d.bypp),sizeof(char),2,pfile);
-    // fwrite(d.arr,sizeof(char),nEmptyBytes,pfile);
     if(pfile!=NULL){
         fseek(pfile,0,SEEK_SET);
         fwrite(header.heads,sizeof(unsigned char),b.endHeader,pfile);
@@ -330,10 +315,10 @@ void fWriteHeader(FILE* pfile,Header header){
 void fWritePix(FILE *pfile,PIX px,int flag){
     if(pfile==NULL){pfile=stdout;}
 
-    if(flag){fwrite(&(px.alpha),sizeof(char),1,pfile);}
-    fwrite(&(px.blue),sizeof(char),1,pfile);
-    fwrite(&(px.green),sizeof(char),1,pfile);    
-    fwrite(&(px.red),sizeof(char),1,pfile);
+    if(flag){fwrite(&(px.alpha),sizeof(unsigned char),1,pfile);}
+    fwrite(&(px.blue),sizeof(unsigned char),1,pfile);
+    fwrite(&(px.green),sizeof(unsigned char),1,pfile);    
+    fwrite(&(px.red),sizeof(unsigned char),1,pfile);
 }
 
 // Writing all pixels to new file
@@ -344,44 +329,82 @@ int fWritePixels(FILE *pfile,Pixels pxs, Header header){
     for(int i=0;i<pxs.nPixels;i++){
         fWritePix(pfile,pxs.pixArr[i],flag);
     }
+    if(pfile!=NULL){fclose(pfile);}
     return 1;
 }
 
-void printPixels(Pixels pxs,Header header){
-    fWriteHeader(NULL,header);
-    int flag=header.dHeader.bipp-3;
-    for(int i=0;i<pxs.nPixels;i++){
-        fWritePix(NULL,pxs.pixArr[i],flag);
-    }
-    // fclose(pfile);
+// Check if the file is in .bmp format or asked for help message
+int checkFileInput(char* file){
+    char *dot=strrchr(file, '.');
+    if(dot!=NULL && strcmp(dot,".bmp")==0){return 1;}
+    else{return -1;}
 }
 
-int main(){
+// Filtering and checking the inputs
+int getFiles(char **filename1, char **filename2,int argc, char **argv){
+    if(argc==2){
+        if(strcmp(argv[1],"--help")==0){
+            printf("%s",help);
+            return -1;
+        }
+        if(checkFileInput(argv[1])!=-1){
+            *filename1=(char*)malloc(sizeof(char)*strlen(argv[1]));
+            strcpy(*filename1,argv[1]); 
+        }
+    }
+    else if(argc>2){
+        int opt;
+        while ((opt = getopt(argc, argv, "o:")) != -1) {
+            switch (opt) {
+                case 'o':
+                    if(checkFileInput(optarg)!=-1 && checkFileInput(argv[1])!=-1){
+                        *filename1=(char*)malloc(sizeof(char)*strlen(argv[1]));
+                        strcpy(*filename1,argv[1]); 
+                        *filename2=(char*)malloc(sizeof(char)*strlen(optarg));
+                        strcpy(*filename2,optarg);  
+                    }
+                    break;
+                default:{
+                    puts("invalid flag");
+                }
+            }
+        }
+    }
 
-    FILE *pfile=fopen("examples/example2.bmp","r");
-    Header hh=getHeader(pfile);
-    // printHeader(hh);
-    // Cursor to end of headers / start of colors
-    // PIX pix;
-    
-    Pixels pxs=getPixels(pfile,hh);
-    // puts("########################### old");
-    // printPixelsInfo(pxs);
+    if(*filename1!=NULL){
+        if(*filename2!=NULL){
+            return 1;
+        }
+        return 0;
+    }
+    else{
+        puts("ERROR: you must provide a .bmp file name");
+        return -1;
+    }
+}
 
+int main(int argc, char** argv){
+    char *filename1=NULL;
+    char *filename2=NULL;
+    FILE *pfile1;
+    FILE *pfile2=NULL;
+    int state=getFiles(&filename1,&filename2,argc,argv);
+    if(state==-1){
+        return 0;
+    }
+    if((pfile1=fopen(filename1,"r"))==NULL){puts("File doesn't exist!"); return 0;}
+
+    Header hh=getHeader(pfile1);
+    Pixels pxs=getPixels(pfile1,hh);
     Pixels new=fAutoAdjust(pxs);
-    // puts("########################### new");
-    // printPixelsInfo(new);
-    // puts("###########################");
 
-    FILE *pfile2=fopen("results/new2.bmp","w");
-    // printPixels(pxs,hh);
+    if(state==1){
+        if((pfile2=fopen(filename2,"w"))==NULL){puts("File doesn't exist!"); return 0;};
+    }
+    
     fWritePixels(pfile2,new,hh);
-    // fWritePixels(pfile2,new,hh);
 
-
-
-    printf("\n");
-    fclose(pfile);
+    fclose(pfile1);
 
     return 0;
 }
