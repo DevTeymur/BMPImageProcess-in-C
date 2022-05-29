@@ -1,0 +1,101 @@
+\documentclass[12pt, a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsfonts,amssymb,amsbsy,amsthm,enumerate,verbatim, mathrsfs, graphicx}
+
+\title{DSA2 mini-project report}
+\author{Teymur Rzali, Gismat Salimov}
+
+\begin{document}
+
+% \begin{figure}[t]
+% \includegraphics[width=\linewidth, height=7cm]{ufazLogo}
+% \end{figure}
+
+\maketitle
+\section*{Introduction}
+The main idea of this project is to create a program that allows adjusting the brightness and contrast of the BMP image automatically. To obtain solid results the process should be done by obeying specific rules. To modify the brightness the minimum value of all RGB pixels will be subtracted from all pixels. Multiplying pixels by the maximizing factor which is gained by dividing the maximum brightness by the maximum RGB values allows obtaining maximum contrast in the image.
+
+\section*{BMP image characteristics}
+The \textbf{BMP} image consists of two headers. The first BMP header (14 bytes) stores the general information about the image. The \textbf{DIB} header (the first 16 bytes) stores detailed information about the BMP image properties and pixel format. 
+
+\section*{Procedure}
+To interact and play with BMP image values the needed functions are created.
+
+\subsubsection*{Functions for reading the BMP and DIB header}
+
+The \textbf{BMP getBmp} function opens the file setting the cursor to position zero and then starts to read the bytes obeying the values: 
+\begin{itemize}
+    \item 2 bytes for finding the format of the file
+    \item 4 bytes for getting the size of the file in decimal
+    \item the next 4 bytes are reserved for the application which unused
+    \item 4 bytes for the end header which contains the byte where the image starts
+\end{itemize}
+
+The \textbf{DIB getDib} function starts to collect data from the image reading the correct amount of bytes:
+\begin{itemize}
+    \item 4 bytes which contain the size of the DIB header
+    \item 4 bytes for the width of the image
+    \item 4 bytes for the height of the image
+    \item 2 bytes of color planes
+    \item 2 bytes which store the value for “bit per pixels”
+\end{itemize}
+The functions read all the header data and store them in an array to access them easily in the future when the resulting image is created
+
+\subsubsection*{Functions for reading the pixel values}
+The reading of header data is done, so the next is to read pixels that contain RGB (also alpha values if any ) values from the image. The main pixel reader function \textbf{Pixels fGetPixels} invokes several functions inside. The procedure starts with initializing the dynamic array with \textbf{Pixels fInitPixels} function for the pixels. The number of all RGB value groups (also the size of the array) could be found by multiplying the height by the width obtained from the header. The main read process starts with reading every RGB (also alpha if there is any) value with \textbf{PIX fGetPix} function at the same time comparing them to get maximum and minimum pixel values. The int ifMinPix and \textbf{int ifMaxPix} functions check if the current pixel is the minimum or maximum respectively. All the RGB  values are stored in the array that is initialized at the beginning of the function. 
+
+\subsubsection*{Functions for adjusting the brightness and contrast}
+The \textbf{Pixels fAutoAdjust} function both finds the value to multiply the pixels to get maximum contrast and next modify the brightness and contrast of the image. Once more, initializing an empty array with the size of the pixels allows for adding modified pixel values to it. The \textbf{float* fGetCoefs} is responsible for finding maximizing coefficients for RGB values. As a next step, all the pixel values are read one-by-one from the array given as an argument sent to \textbf{PIX fEditPixel} function for editing the values to adjust brightness and contrast. The function modifies the red, green, and blue values of the pixel returning a new RGB value. All the modified pixels are written to the newly created array. 
+
+\subsubsection*{Function to collect all arrays and convert to image}
+After all adjusting processes are done, \textbf{int fWritePixels} starts to write the header and result array to the file that opened in write mode. The void fWriteHeader writes the BMP and DIB headers to the file given as an argument. Next, \textbf{void fWritePix} appends the modified pixel values to the file. All the processes are done, and the modified image is ready as a result.
+
+
+\section*{User manual}
+
+To see results visually, the user has to compile main.c file with --lm flag.
+\begin{itemize}
+  \item gcc main.c -o autoadjust -lm
+\end{itemize}
+
+The --help command provides the message about how to run the code properly. Example run:
+\begin{itemize}
+  \item ./autoadjust --help
+\end{itemize}
+
+The program gets the input path to the image as a command-line argument. All the necessary errors and pre-checkings such as file validation and correct input format are handled and provided in the code. To get the result, the user should first specify the path to the input image and then the path for storing the resulting image. Example run:
+\begin{itemize}
+  \item ./autoadjust input.bmp $>$ result.bmp
+\end{itemize}
+
+The second way is to run is to mention the flag “-o” to output the result into an output file. Example run: 
+\begin{itemize}
+  \item ./autoadjust image.bmp -o result.bmp
+\end{itemize}
+
+\section*{Results}
+\subsubsection*{Example 1}
+\begin{figure}[!h]
+    \centering
+    \includegraphics[width=5cm, height=5cm]{bw}
+    \includegraphics[width=5cm, height=5cm]{bw}
+    \caption{Test on black white color}
+    \label{fig:my_label}
+\end{figure}
+
+There is no difference between the initial and resulting image as its lowest value is 0,0,0 (black) and highest 255,255,255 (white) which means its RGB values are already at the highest state of brightness and contrast values. 
+ 
+\subsubsection*{Example 2}
+Testing on the image which have different RGB values rather than 2 which seen in example 1 shows the difference between input and output.
+
+\begin{figure}[!h]
+    \centering
+    \includegraphics[width=0.49\linewidth, height=5cm]{example2.png}\hfill
+    \includegraphics[width=0.49\linewidth, height=5cm]{bridge.png}
+    \caption{Test on bridge image}
+    \label{fig:my_label}
+\end{figure}
+
+
+
+\end{document}
